@@ -46,7 +46,7 @@ function onSubmit(event) {
         .catch(error) 
 }
 
-
+ 
 async function onSearchByName() {
   try {
     const response = await axios.get(`https://pixabay.com/api/?key=31092155-fdd6914219543248b658a821f&q=${searchQuery}
