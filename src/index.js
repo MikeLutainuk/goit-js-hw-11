@@ -1,137 +1,123 @@
-const axios = require('axios').default;
+import './sass/index.scss';
 import Notiflix from 'notiflix';
+const axios = require('axios').default;
 
-const refs = { 
-    findImg: document.querySelector('#search-form'),
-    gallery: document.querySelector('.gallery'),
-    submitBtn: document.querySelector('button[type=submit]'),
-    loadMore: document.querySelector('.load-more')
+const inputRef = document.querySelector('[name="searchQuery"]');
+const searchRef = document.querySelector('.search-form');
+const galleryRef = document.querySelector('.gallery');
+const loadMoreRef = document.querySelector('.load-more');
 
-}
+// inputRef.addEventListener('input', onInput);
+searchRef.addEventListener('submit', onSearch);
+loadMoreRef.addEventListener('click', onLoadMore);
 
 let searchQuery = '';
-let page = 1;
+let page = 0;
+let totalHits = 0;
 
-const hidden = document.querySelector('.load-more')
-hidden.classList.add('is-hidden')
+function onSearch(evt) {
+  loadMoreRef.style.display = 'none';
+  searchQuery = evt.currentTarget.elements.searchQuery.value;
+  resetPage();
 
-refs.findImg.addEventListener('submit', onSubmit)
-refs.loadMore.addEventListener('click', onLoadMore)
+  evt.preventDefault();
 
+  resetGallery();
 
-function onSubmit(event) {
-
-    event.preventDefault();
-
-    searchQuery = event.currentTarget.elements.searchQuery.value.trim();
-
-     if (!searchQuery) {
-         refs.gallery.innerHTML = '';
-         hidden.classList.add('is-hidden')
-         Notiflix.Notify.info('Sorry, there are no images matching your search query. Please try again.');
-    return;  
-    }
-
-
-    resetPage()
-    
-     hidden.classList.remove('is-hidden')
-    
-        onSearchByName()
-        .then(pictures => {
-            clearPage();
-            renderPictures(pictures)
-            
-        })
-        .catch(error) 
+  getPictures()
+    .then(renderGalleryCard)
+    // .then(pictures => console.log(pictures))
+    .catch(error => console.log(error));
 }
 
- 
-async function onSearchByName() {
+const BASE_URL = `https://pixabay.com/api/?key=34603447-420b9507c9dfa301393340c59`;
+const PER_PAGE = `40`;
+
+async function getPictures() {
+  page += 1;
   try {
-    const response = await axios.get(`https://pixabay.com/api/?key=31092155-fdd6914219543248b658a821f&q=${searchQuery}
-   &image_type=photo&orientation=horizontal&safesearch=true&per_page=40&page=${page}`);
-      return response
+    const response = await axios.get(
+      `${BASE_URL}&q=${searchQuery}&image_type=photo&orientation=horizontal&safesearch=true&per_page=${PER_PAGE}&page=${page}`
+    );
+    totalHits = response.data.totalHits;
+    return response.data.hits;
   } catch (error) {
-   console.log("Ooooppsss I did it again");;
+    console.error(error);
   }
 }
 
+function renderGalleryCard(pictures) {
+  if (pictures.length === 0) {
+    console.log(pictures.length);
+    Notiflix.Notify.info(
+      `Sorry, there are no images matching your search query. Please try again.`
+    );
+  } else {
+    const galleryMarkup = pictures
+      .map(
+        ({
+          webformatURL,
+          largeImageURL,
+          tags,
+          likes,
+          views,
+          comments,
+          downloads,
+        }) => {
+          return `<div class="photo-card">
+  <img src="${webformatURL}" alt="${tags}" loading="lazy" class="photo-card__img"/>
+  <div class="info">
+    <p class="info-item">
+      <b>Likes </b>${likes}
+    </p>
+    <p class="info-item">
+      <b>Views </b>${views}
+    </p>
+    <p class="info-item">
+      <b>Comments </b>${comments}
+    </p>
+    <p class="info-item">
+      <b>Downloads </b> ${downloads}
+    </p>
+  </div>
+</div>`;
+        }
+      )
+      .join('');
 
-function renderPictures(pictures) {
-    if (pictures.data.hits.length === 0) {
-        hidden.classList.add('is-hidden')
-    Notiflix.Notify.failure("Sorry, there are no images matching your search query. Please try again.");
-    
-    return;
-    }
-    timer()
-           
-    Notiflix.Notify.success(`Hooray! We found ${pictures.data.totalHits} images.`);
-
-   addPage()
-     const markup = pictures.data.hits
-      .map((picture) => {
-         
-     return `<div class="photo-card">
-            <img src="${picture.webformatURL}" alt="${picture.tags}" width="360" height="240" loading="lazy" />
-            <div class="info">
-            <p class="info-item"> likes:
-            <b> ${picture.likes}</b>
-            </p>
-            <p class="info-item"> views: 
-             <b>${picture.views}</b>
-            </p>
-            <p class="info-item"> comments:
-              <b> ${picture.comments}</b>
-            </p>
-            <p class="info-item"> downloads:
-           <b> ${picture.downloads}</b>
-            </p>
-            </div>
-        </div>`;
-       
-    })
-        .join("");
-    
-   
-  refs.gallery.insertAdjacentHTML('beforeend' , markup)
-    
-    
+    galleryRef.insertAdjacentHTML('beforeend', galleryMarkup);
+    showButton();
+    totalHitsCheck();
+  }
 }
 
+function totalHitsCheck() {
+  if (totalHits < page * PER_PAGE) {
+    hideButton();
+  }
+}
 
 function onLoadMore() {
-    
-    hidden.classList.add('is-hidden')
-    onSearchByName()
-        .then(renderPictures)     
+  getPictures()
+    .then(renderGalleryCard)
+    .catch(error => console.log(error));
 }
 
-
-function clearPage() {
-   refs.gallery.innerHTML = ''
+function showButton() {
+  loadMoreRef.style.display = 'inline-block';
 }
 
-
-function timer() {
-    const timerId = setTimeout(() => {
-         
-     hidden.classList.remove('is-hidden')
-  }, 1000);
+function hideButton() {
+  loadMoreRef.style.display = 'none';
+  Notiflix.Notify.failure(
+    `We're sorry, but you've reached the end of search results.`
+  );
 }
 
-
-function error(error) {
-        Notiflix.Notify.failure("We're sorry, but you've reached the end of search results.");
+function resetGallery() {
+  galleryRef.innerHTML = '';
 }
 
-
-function addPage() { 
-   
-    page += 1;            
-}
-
-function resetPage() { 
-    page = 1;
+function resetPage() {
+  page = 0;
 }
